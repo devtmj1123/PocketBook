@@ -3,12 +3,27 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import firebaseConfig from "../../firebase-applet-config.json";
 
-// Initialize official Firebase App Client
-const app = initializeApp(firebaseConfig);
+// Standardize configuration priority: Prefer environment variables (e.g. Vercel) over developer sandbox files
+const envs = (import.meta as any).env || {};
 
-// Critical: export db linked to proper provisioned workspace databaseId
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-export const auth = getAuth();
+const activeConfig = {
+  apiKey: envs.VITE_FIREBASE_API_KEY || firebaseConfig.apiKey || "",
+  authDomain: envs.VITE_FIREBASE_AUTH_DOMAIN || firebaseConfig.authDomain || "",
+  projectId: envs.VITE_FIREBASE_PROJECT_ID || firebaseConfig.projectId || "",
+  storageBucket: envs.VITE_FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket || "",
+  messagingSenderId: envs.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseConfig.messagingSenderId || "",
+  appId: envs.VITE_FIREBASE_APP_ID || firebaseConfig.appId || "",
+};
+
+const activeDatabaseId = envs.VITE_FIREBASE_DATABASE_ID || firebaseConfig.firestoreDatabaseId || "(default)";
+
+
+// Initialize official Firebase App Client
+const app = initializeApp(activeConfig);
+
+// Critical: export db linked to proper databaseId
+export const db = getFirestore(app, activeDatabaseId);
+export const auth = getAuth(app);
 
 export enum OperationType {
   CREATE = "create",
