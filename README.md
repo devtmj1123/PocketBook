@@ -1,5 +1,12 @@
 # PocketBook: Personal Finance Ledger & Secure Notebook
 
+![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
+![React](https://img.shields.io/badge/React-18%2B-61DAFB?logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?logo=tailwindcss&logoColor=white)
+![Firebase](https://img.shields.io/badge/Database-Firestore-FFCA28?logo=firebase&logoColor=black)
+![Security](https://img.shields.io/badge/Privacy-AES--256_Encrypted-4CAF50?logo=basic-attention-token&logoColor=white)
+
 PocketBook is a comprehensive, client-side encrypted personal asset manager, budget planner, interactive scheduler, and rich notebook. Engineered for zero-trust client privacy, dynamic responsive layouts, and lightning-fast serverless synchronizations on Google Cloud Firestore.
 
 ---
