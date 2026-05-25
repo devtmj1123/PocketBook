@@ -1,0 +1,188 @@
+{
+  "entities": {
+    "userProfile": {
+      "title": "UserProfile",
+      "description": "User preferences, theme state, monthly income pools, and security PIN metadata.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Unique identifier of the verified user."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's registered email."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Display name of the user."
+        },
+        "theme": {
+          "type": "string",
+          "enum": ["light", "dark"],
+          "description": "Visual visual theme toggle: light or dark."
+        },
+        "monthlyIncome": {
+          "type": "number",
+          "description": "Monthly incoming wage pool budget."
+        },
+        "encryptionCheck": {
+          "type": "string",
+          "description": "A check-key encrypted with the cryptographic PIN to verify decryption feasibility."
+        },
+        "salt": {
+          "type": "string",
+          "description": "The salt string used in PIN PBKDF2 derivative operations client-side."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "email", "theme", "monthlyIncome"]
+    },
+    "transaction": {
+      "title": "Transaction",
+      "description": "A ledger checkout item. Sensitive fields may be encrypted.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string", "description": "Title, potentially AES-encrypted text string." },
+        "amount": { "type": "number" },
+        "category": { "type": "string" },
+        "date": { "type": "string" },
+        "tag": { "type": "string" },
+        "notes": { "type": "string", "description": "Extended notes, potentially AES-encrypted text string." },
+        "encrypted": { "type": "boolean", "description": "Flag indicating if title/notes are client-side encrypted." },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "amount", "category", "date", "tag"]
+    },
+    "budget": {
+      "title": "Budget",
+      "description": "Aggregated category limits and expenditures.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "category": { "type": "string" },
+        "limit": { "type": "number" },
+        "spent": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "category", "limit", "spent"]
+    },
+    "savingsGoal": {
+      "title": "SavingsGoal",
+      "description": "Funding objectives and timelines. Sensitive fields may be encrypted.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "description": "Target name, potentially encrypted." },
+        "target": { "type": "number" },
+        "current": { "type": "number" },
+        "targetDate": { "type": "string" },
+        "description": { "type": "string", "description": "Description paragraph, potentially encrypted." },
+        "encrypted": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "target", "current", "targetDate"]
+    },
+    "note": {
+      "title": "Note",
+      "description": "Rich client notepad layout. Each block or final note state is encrypted if requested.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string", "description": "Page title, potentially encrypted." },
+        "blocksJson": { "type": "string", "description": "JSON serialized notes blocks, potentially encrypted." },
+        "tags": { "type": "array" },
+        "encrypted": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "blocksJson", "tags"]
+    },
+    "task": {
+      "title": "Task",
+      "description": "Schedule todo milestones.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string", "description": "Task label, potentially encrypted." },
+        "completed": { "type": "boolean" },
+        "dueDate": { "type": "string" },
+        "amount": { "type": "number" },
+        "category": { "type": "string" },
+        "encrypted": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "completed", "dueDate"]
+    },
+    "event": {
+      "title": "Event",
+      "description": "A calendar schedule event.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string", "description": "Event label, potentially encrypted." },
+        "date": { "type": "string" },
+        "amount": { "type": "number" },
+        "type": { "type": "string", "enum": ["income", "expense", "reminder"] },
+        "notes": { "type": "string", "description": "Context memo details, potentially encrypted." },
+        "completed": { "type": "boolean" },
+        "encrypted": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "date", "type"]
+    },
+    "appNotification": {
+      "title": "AppNotification",
+      "description": "Real-time alerts and notification reminders",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string", "description": "Alert title, potentially encrypted." },
+        "message": { "type": "string", "description": "Notification details message, potentially encrypted." },
+        "type": { "type": "string", "enum": ["reminder", "task", "event", "system"] },
+        "date": { "type": "string" },
+        "read": { "type": "boolean" },
+        "referenceId": { "type": "string" },
+        "encrypted": { "type": "boolean" }
+      },
+      "required": ["id", "title", "message", "type", "date", "read"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "userProfile",
+      "description": "User specific accounts, preferences, income configuration, and salt vectors."
+    },
+    "/users/{userId}/transactions/{transactionId}": {
+      "schema": "transaction",
+      "description": "Transactional financial transactions for ledgers."
+    },
+    "/users/{userId}/budgets/{budgetId}": {
+      "schema": "budget",
+      "description": "Allocated limits for categories."
+    },
+    "/users/{userId}/savingsGoals/{goalId}": {
+      "schema": "savingsGoal",
+      "description": "Tracking goals and milestones."
+    },
+    "/users/{userId}/notes/{noteId}": {
+      "schema": "note",
+      "description": "Shared notebook entries."
+    },
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": "task",
+      "description": "General financial/action items to check."
+    },
+    "/users/{userId}/events/{eventId}": {
+      "schema": "event",
+      "description": "Upcoming scheduled cash clearance dates."
+    },
+    "/users/{userId}/notifications/{notificationId}": {
+      "schema": "appNotification",
+      "description": "Triggered task deadlines and bill reminder alerts."
+    }
+  }
+}

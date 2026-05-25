@@ -1,0 +1,6 @@
+{
+  "name": "Budget & Personal Finance Tracker",
+  "description": "An interactive budgeting app featuring expense trackers, savings goals, Notion-like rich notes, custom tags, task and event calendars, and a localized server-side Gemini AI financial advisor.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
