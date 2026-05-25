@@ -1,20 +1,30 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# PocketBook: Personal Finance Ledger & Secure Notebook
 
-# Run and deploy your AI Studio app
+PocketBook is a comprehensive, client-side encrypted personal asset manager, budget planner, interactive scheduler, and rich notebook. Engineered for zero-trust client privacy, dynamic responsive layouts, and lightning-fast serverless synchronizations on Google Cloud Firestore.
 
-This contains everything you need to run your app locally.
+---
 
-View your app in AI Studio: https://ai.studio/apps/c4346f49-6878-4768-b013-e3a990f221f4
+## 🌟 Key Application Features
 
-## Run Locally
+### 💵 Comprehensive Financial Ledger & Allowance Tracker
+*   **Income & Expenses Ledger**: Maintain interactive financial logs of monthly inflows, expenses, recurring subscriptions, and manual transactions.
+*   **Segmented Budget Goals**: Define custom budgets per categories/tags. PocketBook flags and triggers automatic browser alerts when you approach your set budget boundaries.
+*   **Visual Saving Horizons**: Define targets for saving horizons with dynamic progress calculations towards financial checkpoints.
 
-**Prerequisites:**  Node.js
+### 📝 Client-Side Zero-Trust Encrypted Notebook (Notion-Style)
+*   **Zero-Knowledge Encryption**: Fully encrypts the names, bodies, inline notes, and textual details of your notebooks prior to cloud syncing using a client-side derived AES secret PIN. Nobody (not even Firestore operators) can read your content.
+*   **Rich Structural Sorting**: Classify draft notebooks, documents, or logs with custom sub-categories, filter grids, and tagging schemes.
 
+### 📅 Unified Scheduler Tasks & Calendar Grid
+*   **Time-Blocked Events Grid**: Manage visual schedules, recurring obligations, meetings, and obligations on an interactive calendar interface.
+*   **Direct Task Checklists**: Complete, edit, or filter nested tasks and schedules instantly.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### 🤖 Intelligent AI Finance Companion
+*   **Full Context Analysis**: Connects automatically to your local financial register, category spending distributions, saving goals, and schedule configurations.
+*   **Cash Flow Optimization**: Delivers context-grounded suggestions on optimizing expenditures, category optimizations, and checking goals viability.
+
+---
+
+## 📜 Project License
+
+This project is open-source software licensed under the **MIT License**. See the accompanying `LICENSE` file for full permission details.
