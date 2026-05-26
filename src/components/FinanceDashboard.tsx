@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { 
   Plus, 
   Trash2, 
@@ -13,7 +14,8 @@ import {
   Sparkles,
   CalendarDays,
   Menu,
-  FileText
+  FileText,
+  X
 } from "lucide-react";
 import { Transaction, Budget, SavingsGoal, CustomTag } from "../types";
 import CustomSelect from "./CustomSelect";
@@ -49,6 +51,16 @@ export default function FinanceDashboard({
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTagFilter, setSelectedTagFilter] = useState("all");
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("all");
+
+  // Budget threshold warning popup trigger state
+  const [budgetAlert, setBudgetAlert] = useState<{
+    category: string;
+    limit: number;
+    amountAdded: number;
+    currentSpent: number;
+    exceededBy: number;
+    expenseTitle: string;
+  } | null>(null);
 
   // Creation forms state
   const [newTx, setNewTx] = useState({
@@ -155,6 +167,23 @@ export default function FinanceDashboard({
     };
 
     setExpenses((prev) => [added, ...prev]);
+
+    // Check if newly added transaction pushes corresponding category budget over limit
+    const relevantBudget = budgets.find((b) => b.category === added.category);
+    if (relevantBudget) {
+      const oldSpent = relevantBudget.spent;
+      const newSpent = oldSpent + added.amount;
+      if (newSpent > relevantBudget.limit) {
+        setBudgetAlert({
+          category: added.category,
+          limit: relevantBudget.limit,
+          amountAdded: added.amount,
+          currentSpent: newSpent,
+          exceededBy: newSpent - relevantBudget.limit,
+          expenseTitle: added.title,
+        });
+      }
+    }
 
     // Update corresponding budget allocation spent
     setBudgets((prev) => 
@@ -1130,6 +1159,122 @@ export default function FinanceDashboard({
 
       </div>
       
+      {/* Visual notification modal for budget limit overflow */}
+      <AnimatePresence>
+        {budgetAlert && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs"
+            id="budget-overflow-overlay"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 30, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.95, y: 30, opacity: 0 }}
+              transition={{ type: "spring", bounce: 0.25, duration: 0.45 }}
+              className="bg-white dark:bg-slate-900 border border-red-200 dark:border-red-950/60 rounded-3xl max-w-md w-full p-6 shadow-2xl relative overflow-hidden space-y-5"
+            >
+              {/* Top ambient color bar for urgency */}
+              <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-rose-500 via-amber-500 to-rose-600 animate-pulse" />
+
+              {/* Header section with pulsating bell alert */}
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-rose-50 dark:bg-rose-950/40 rounded-2xl border border-rose-100 dark:border-rose-900/30 text-rose-500 shrink-0 relative">
+                  <span className="absolute inset-0 rounded-2xl bg-rose-400/20 animate-ping" />
+                  <AlertTriangle className="w-6 h-6 relative z-10" />
+                </div>
+                <div className="space-y-1 min-w-0 flex-1">
+                  <span className="text-[10px] font-mono font-bold text-rose-600 dark:text-rose-400 uppercase tracking-widest block">
+                    Critical Alert / Budget Overflow
+                  </span>
+                  <h3 className="text-xl font-extrabold tracking-tight text-slate-950 dark:text-slate-50 font-sans leading-snug">
+                    Overdraft Warning!
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setBudgetAlert(null)}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer self-start"
+                  aria-label="Dismiss alert"
+                  id="budget-alert-close-btn"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Informational description */}
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-sans">
+                Logging the expense <strong className="text-slate-900 dark:text-slate-100">"{budgetAlert.expenseTitle}"</strong> for <strong className="text-rose-600 dark:text-rose-400 font-mono">${budgetAlert.amountAdded.toFixed(2)}</strong> has pushed your <strong className="text-indigo-600 dark:text-indigo-400">"{budgetAlert.category}"</strong> monthly allowance over its defined threshold.
+              </p>
+
+              {/* Progress bars / visual gauges of the budget */}
+              <div className="p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800/80 space-y-3 font-sans">
+                <div className="flex justify-between items-end text-xs">
+                  <span className="font-semibold text-slate-500 dark:text-slate-400">{budgetAlert.category} Monthly Cap</span>
+                  <span className="font-mono font-bold text-slate-850 dark:text-slate-200">
+                    ${budgetAlert.currentSpent.toFixed(2)} / <span className="text-slate-450 dark:text-slate-500">${budgetAlert.limit.toFixed(2)}</span>
+                  </span>
+                </div>
+
+                <div className="relative h-2.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden flex">
+                  {/* Under budget proportion */}
+                  <div 
+                    className="h-full bg-indigo-550 dark:bg-indigo-600 transition-all duration-300 rounded-l-full"
+                    style={{ width: `${Math.min(100, (budgetAlert.limit / budgetAlert.currentSpent) * 100)}%` }}
+                  />
+                  {/* Overflow proportion in high-contrast animated red */}
+                  <div 
+                    className="h-full bg-rose-550 dark:bg-rose-600 flex-1 animate-pulse"
+                    style={{ width: `${Math.max(0, 100 - (budgetAlert.limit / budgetAlert.currentSpent) * 100)}%` }}
+                  />
+                </div>
+
+                <div className="flex justify-between text-[11px] font-mono leading-none pt-1">
+                  <span className="text-slate-400 dark:text-slate-500">Allowed Limit</span>
+                  <span className="text-rose-500 dark:text-rose-400 font-bold flex items-center gap-1">
+                    Exceeded by +${budgetAlert.exceededBy.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className="grid grid-cols-2 gap-3 pt-1 font-sans">
+                <button
+                  type="button"
+                  onClick={() => setBudgetAlert(null)}
+                  className="w-full text-center py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-705 text-slate-800 dark:text-slate-200 font-semibold text-xs rounded-xl transition-all cursor-pointer outline-none"
+                  id="budget-alert-dismiss"
+                >
+                  Close & Acknowledge
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBudgetAlert(null);
+                    setNewBudget({ category: budgetAlert.category, limit: budgetAlert.limit.toString() });
+                    setShowAddBudget(true);
+                    
+                    // Smoothly scroll elements to budget card section to guide focus
+                    setTimeout(() => {
+                      const element = document.getElementById("budgets-card");
+                      if (element) {
+                        element.scrollIntoView({ behavior: "smooth", block: "center" });
+                      }
+                    }, 150);
+                  }}
+                  className="w-full text-center py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-md shadow-rose-200/25 dark:shadow-none flex items-center justify-center gap-1.5"
+                  id="budget-alert-adjust"
+                >
+                  Adjust Limit Cap
+                </button>
+              </div>
+
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }

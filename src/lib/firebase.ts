@@ -5,17 +5,18 @@ import firebaseConfig from "../../firebase-applet-config.json";
 
 // Standardize configuration priority: Prefer environment variables (e.g. Vercel) over developer sandbox files
 const envs = (import.meta as any).env || {};
+const configData = firebaseConfig as any;
 
 const activeConfig = {
-  apiKey: envs.VITE_FIREBASE_API_KEY || firebaseConfig.apiKey || "",
-  authDomain: envs.VITE_FIREBASE_AUTH_DOMAIN || firebaseConfig.authDomain || "",
-  projectId: envs.VITE_FIREBASE_PROJECT_ID || firebaseConfig.projectId || "",
-  storageBucket: envs.VITE_FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket || "",
-  messagingSenderId: envs.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseConfig.messagingSenderId || "",
-  appId: envs.VITE_FIREBASE_APP_ID || firebaseConfig.appId || "",
+  apiKey: envs.VITE_FIREBASE_API_KEY || configData.apiKey || "",
+  authDomain: envs.VITE_FIREBASE_AUTH_DOMAIN || configData.authDomain || "",
+  projectId: envs.VITE_FIREBASE_PROJECT_ID || configData.projectId || "",
+  storageBucket: envs.VITE_FIREBASE_STORAGE_BUCKET || configData.storageBucket || "",
+  messagingSenderId: envs.VITE_FIREBASE_MESSAGING_SENDER_ID || configData.messagingSenderId || "",
+  appId: envs.VITE_FIREBASE_APP_ID || configData.appId || "",
 };
 
-const activeDatabaseId = envs.VITE_FIREBASE_DATABASE_ID || firebaseConfig.firestoreDatabaseId || "(default)";
+const activeDatabaseId = envs.VITE_FIREBASE_DATABASE_ID || configData.firestoreDatabaseId || "(default)";
 
 
 // Initialize official Firebase App Client

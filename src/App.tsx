@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { 
   DollarSign, 
   Sparkles, 
@@ -45,6 +46,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [encryptionPin, setEncryptionPin] = useState("1234");
+  const notificationRef = React.useRef<HTMLDivElement>(null);
   
   // Navigation tabs
   const [activeTab, setActiveTab] = useState<"dashboard" | "notes" | "calendar" | "advisor" | "settings">("dashboard");
@@ -78,6 +80,20 @@ export default function App() {
   // Real-time notification and alerts state backed by Firestore
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setShowNotificationsDropdown(false);
+      }
+    }
+    if (showNotificationsDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showNotificationsDropdown]);
 
   // Desktop Notifications Permission & Synchronization
   const [notificationPermission, setNotificationPermission] = useState<"default" | "granted" | "denied">(() => {
@@ -903,14 +919,7 @@ export default function App() {
 
           {/* Right: Security info, notification bells, settings and Logout */}
           <div className="flex items-center gap-3">
-            
-            {/* Zero-Knowledge PIN info */}
-            <div className="hidden lg:flex items-center gap-1 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/40 rounded-lg text-[10px] font-mono">
-              <Lock className="w-3 h-3" />
-              <span>AES: {encryptionPin}</span>
-            </div>
-
-            {/* Theme switcher */}
+                      {/* Theme switcher */}
             <button
               id="btn-theme-switcher"
               onClick={toggleTheme}
@@ -921,7 +930,7 @@ export default function App() {
             </button>
 
             {/* Notification Bell */}
-            <div className="relative">
+            <div className="relative" ref={notificationRef}>
               <button
                 id="btn-notifications-trigger"
                 onClick={() => setShowNotificationsDropdown(!showNotificationsDropdown)}
@@ -937,96 +946,104 @@ export default function App() {
               </button>
 
               {/* Warnings dropdown list popup */}
-              {showNotificationsDropdown && (
-                <div className="absolute right-0 mt-3 w-80 modern-dropdown border border-slate-100 dark:border-slate-800 rounded-2xl shadow-xl shadow-slate-200/50 dark:shadow-none z-50 p-4 animate-scale-up max-h-[380px] overflow-y-auto custom-scrollbar-element">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-2">
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">Live Workspace Reminders</h4>
-                      <span className="text-[9px] font-mono text-slate-400 block tracking-wider uppercase mt-0.5">Firebase Alerts Sync</span>
-                    </div>
-                    {notifications.filter(n => !n.read).length > 0 && (
-                      <button
-                        onClick={handleMarkAllAsRead}
-                        className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5 cursor-pointer"
-                      >
-                        <CheckCheck className="w-3" /> Mark all read
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Desktop Alerts Action Bar */}
-                  <div className="mb-3 p-2 bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px]">
-                    <span className="font-medium text-slate-500">Desktop Alerts</span>
-                    {notificationPermission === "granted" ? (
-                      <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 font-mono text-[10px]">
-                        ● Enabled
-                      </span>
-                    ) : notificationPermission === "denied" ? (
-                      <span className="text-rose-500 font-bold flex items-center gap-1 font-mono text-[10px]">
-                        ● Blocked
-                      </span>
-                    ) : (
-                      <button
-                        onClick={requestDesktopPermission}
-                        className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-2 py-1 rounded text-[10px] shadow-xs cursor-pointer"
-                      >
-                        🔔 Enable
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="space-y-2 mt-2">
-                    {notifications.length === 0 ? (
-                      <div className="text-center py-6 text-slate-400 dark:text-slate-500 font-mono text-[11px]">
-                        <BellOff className="w-6 h-6 mx-auto mb-2 opacity-40 text-slate-300" />
-                        <p>No new notifications.</p>
+              <AnimatePresence>
+                {showNotificationsDropdown && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 12, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 12, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 mt-3 w-80 modern-dropdown border border-slate-100 dark:border-slate-800 rounded-2xl shadow-xl shadow-slate-200/50 dark:shadow-none z-50 p-4 max-h-[380px] overflow-y-auto custom-scrollbar-element"
+                  >
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-2">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">Live Workspace Reminders</h4>
+                        <span className="text-[9px] font-mono text-slate-400 block tracking-wider uppercase mt-0.5">Firebase Alerts Sync</span>
                       </div>
-                    ) : (
-                      notifications.map((n) => (
-                        <div
-                          key={n.id}
-                          className={`p-3 rounded-xl border text-[11px] relative transition-colors ${
-                            n.read
-                              ? "bg-slate-50/50 dark:bg-slate-950/20 border-slate-100/50 dark:border-slate-800/50 text-slate-500"
-                              : "bg-indigo-50/5 dark:bg-indigo-950/5 border-indigo-100/30 dark:border-indigo-900/40 text-slate-800 dark:text-slate-200"
-                          }`}
+                      {notifications.filter(n => !n.read).length > 0 && (
+                        <button
+                          onClick={handleMarkAllAsRead}
+                          className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5 cursor-pointer"
                         >
-                          <div className="flex justify-between items-start gap-2">
-                            <span className={`font-mono text-[8px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded-md ${
-                              n.type === "task" 
-                                ? "bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400" 
-                                : "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-450"
-                            }`}>
-                              {n.type}
-                            </span>
-                            <div className="flex items-center gap-1">
-                              {!n.read && (
-                                <button
-                                  onClick={() => handleMarkAsRead(n.id)}
-                                  className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
-                                  title="Mark read"
-                                >
-                                  <CheckCheck className="w-3" />
-                                </button>
-                              )}
-                              <button
-                                onClick={() => handleDeleteNotification(n.id)}
-                                className="p-1 text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
-                                title="Delete alert"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            </div>
-                          </div>
-                          <h5 className="font-bold mt-1.5 leading-snug">{n.title}</h5>
-                          <p className="text-slate-500 dark:text-slate-400 mt-1 leading-relaxed font-sans">{n.message}</p>
-                          <span className="text-[8px] font-mono text-slate-400 dark:text-slate-500 mt-2 block text-right">{n.date}</span>
+                          <CheckCheck className="w-3" /> Mark all read
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Desktop Alerts Action Bar */}
+                    <div className="mb-3 p-2 bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px]">
+                      <span className="font-medium text-slate-500">Desktop Alerts</span>
+                      {notificationPermission === "granted" ? (
+                        <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 font-mono text-[10px]">
+                          ● Enabled
+                        </span>
+                      ) : notificationPermission === "denied" ? (
+                        <span className="text-rose-500 font-bold flex items-center gap-1 font-mono text-[10px]">
+                          ● Blocked
+                        </span>
+                      ) : (
+                        <button
+                          onClick={requestDesktopPermission}
+                          className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-2 py-1 rounded text-[10px] shadow-xs cursor-pointer"
+                        >
+                          🔔 Enable
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="space-y-2 mt-2 font-sans">
+                      {notifications.length === 0 ? (
+                        <div className="text-center py-6 text-slate-400 dark:text-slate-500 font-mono text-[11px]">
+                          <BellOff className="w-6 h-6 mx-auto mb-2 opacity-40 text-slate-300" />
+                          <p>No new notifications.</p>
                         </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
+                      ) : (
+                        notifications.map((n) => (
+                          <div
+                            key={n.id}
+                            className={`p-3 rounded-xl border text-[11px] relative transition-colors ${
+                              n.read
+                                ? "bg-slate-50/50 dark:bg-slate-950/20 border-slate-100/50 dark:border-slate-800/50 text-slate-500"
+                                : "bg-indigo-50/5 dark:bg-indigo-950/5 border-indigo-100/30 dark:border-indigo-900/40 text-slate-800 dark:text-slate-200"
+                            }`}
+                          >
+                            <div className="flex justify-between items-start gap-2">
+                              <span className={`font-mono text-[8px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded-md ${
+                                n.type === "task" 
+                                  ? "bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400" 
+                                  : "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-450"
+                              }`}>
+                                {n.type}
+                              </span>
+                              <div className="flex items-center gap-1">
+                                {!n.read && (
+                                  <button
+                                    onClick={() => handleMarkAsRead(n.id)}
+                                    className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
+                                    title="Mark read"
+                                  >
+                                    <CheckCheck className="w-3" />
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => handleDeleteNotification(n.id)}
+                                  className="p-1 text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
+                                  title="Delete alert"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+                            <h5 className="font-bold mt-1.5 leading-snug">{n.title}</h5>
+                            <p className="text-slate-500 dark:text-slate-400 mt-1 leading-relaxed font-sans">{n.message}</p>
+                            <span className="text-[8px] font-mono text-slate-400 dark:text-slate-500 mt-2 block text-right">{n.date}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Logout trigger button */}
@@ -1123,49 +1140,63 @@ export default function App() {
       </footer>
 
       {/* DB CLEARANCE CONFIRMATION DIALOG */}
-      {showClearConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs" id="db-clearall-dialog">
-          <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-xl animate-scale-up">
-            <div className="flex items-center gap-3 text-rose-600 dark:text-rose-400 mb-4">
-              <span className="p-2.5 bg-rose-50 dark:bg-rose-950/50 rounded-2xl">
-                <Trash2 className="w-6 h-6" />
-              </span>
-              <div>
-                <h3 className="text-md font-bold text-slate-900 dark:text-slate-100">Purge Real-Time Cloud Database?</h3>
-                <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 uppercase tracking-wider block mt-0.5">Sensitive Administrative Operation</span>
+      <AnimatePresence>
+        {showClearConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs"
+            id="db-clearall-dialog"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 15, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.95, y: 15, opacity: 0 }}
+              transition={{ type: "spring", duration: 0.3 }}
+              className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-xl"
+            >
+              <div className="flex items-center gap-3 text-rose-600 dark:text-rose-400 mb-4">
+                <span className="p-2.5 bg-rose-50 dark:bg-rose-950/50 rounded-2xl">
+                  <Trash2 className="w-6 h-6" />
+                </span>
+                <div>
+                  <h3 className="text-md font-bold text-slate-900 dark:text-slate-100">Purge Real-Time Cloud Database?</h3>
+                  <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 uppercase tracking-wider block mt-0.5">Sensitive Administrative Operation</span>
+                </div>
               </div>
-            </div>
 
-            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-6">
-              This will permanently delete all transactions, category budgets, savings goals, notebook pages, calendar events, and tasks created under your user account in the real-time Firebase Firestore database. This action is irreversible.
-            </p>
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-6">
+                This will permanently delete all transactions, category budgets, savings goals, notebook pages, calendar events, and tasks created under your user account in the real-time Firebase Firestore database. This action is irreversible.
+              </p>
 
-            {isWiping ? (
-              <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center gap-3">
-                <Loader2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400 animate-spin" />
-                <span className="text-xs font-mono text-slate-600 dark:text-slate-300">{wipeStatusMessage}</span>
-              </div>
-            ) : (
-              <div className="flex gap-3 justify-end">
-                <button
-                  type="button"
-                  onClick={() => setShowClearConfirm(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold font-mono text-xs rounded-xl transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleClearAllData}
-                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold font-mono text-xs rounded-xl transition flex items-center gap-1.5 cursor-pointer shadow-sm shadow-rose-200 dark:shadow-none"
-                >
-                  <Trash2 className="w-3.5 h-3.5" /> Eviscerate All Data
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+              {isWiping ? (
+                <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center gap-3">
+                  <Loader2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400 animate-spin" />
+                  <span className="text-xs font-mono text-slate-600 dark:text-slate-300">{wipeStatusMessage}</span>
+                </div>
+              ) : (
+                <div className="flex gap-3 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setShowClearConfirm(false)}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold font-mono text-xs rounded-xl transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClearAllData}
+                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold font-mono text-xs rounded-xl transition flex items-center gap-1.5 cursor-pointer shadow-sm shadow-rose-200 dark:shadow-none"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Eviscerate All Data
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

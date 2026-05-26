@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { 
   CheckSquare, 
   Calendar, 
@@ -36,6 +37,8 @@ export default function TasksAndCalendar({
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
   const [selectedDayInfo, setSelectedDayInfo] = useState<number | null>(24);
+  const [choiceDate, setChoiceDate] = useState<string | null>(null);
+  const [draggedOverDate, setDraggedOverDate] = useState<string | null>(null);
 
   // Forms state
   const [showAddTask, setShowAddTask] = useState(false);
@@ -235,17 +238,51 @@ export default function TasksAndCalendar({
                   <div
                     key={idx}
                     onClick={() => {
-                      if (cell.dayNum) {
+                      if (cell.dayNum && cell.isoString) {
                         setSelectedDayInfo(cell.dayNum);
+                        setChoiceDate(cell.isoString);
+                        // Pre-populate forms
+                        setTaskForm(prev => ({ ...prev, dueDate: cell.isoString as string }));
+                        setEventForm(prev => ({ ...prev, date: cell.isoString as string }));
+                      }
+                    }}
+                    onDragOver={(e) => {
+                      if (cell.isoString) {
+                        e.preventDefault();
+                      }
+                    }}
+                    onDragEnter={() => {
+                      if (cell.isoString) {
+                        setDraggedOverDate(cell.isoString);
+                      }
+                    }}
+                    onDragLeave={() => {
+                      if (draggedOverDate === cell.isoString) {
+                        setDraggedOverDate(null);
+                      }
+                    }}
+                    onDrop={(e) => {
+                      if (!cell.isoString) return;
+                      e.preventDefault();
+                      setDraggedOverDate(null);
+                      const taskId = e.dataTransfer.getData("text/plain");
+                      if (taskId) {
+                        setTasks((prev) =>
+                          prev.map((t) =>
+                            t.id === taskId ? { ...t, dueDate: cell.isoString as string } : t
+                          )
+                        );
                       }
                     }}
                     className={`min-h-[76px] rounded-xl border p-1.5 flex flex-col justify-between transition-all cursor-pointer ${
                       cell.dayNum 
-                        ? isSelected 
-                          ? "bg-indigo-50 dark:bg-indigo-950/40 border-indigo-400 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200 font-semibold" 
-                          : isToday 
-                            ? "bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-400 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200" 
-                            : "bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-300"
+                        ? draggedOverDate === cell.isoString
+                          ? "bg-indigo-100 dark:bg-indigo-900 border-indigo-550 text-indigo-950 dark:text-indigo-100 scale-[1.02] shadow-md"
+                          : isSelected 
+                            ? "bg-indigo-50 dark:bg-indigo-950/40 border-indigo-400 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200 font-semibold" 
+                            : isToday 
+                              ? "bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-400 dark:border-emerald-800 text-emerald-950 dark:text-emerald-200" 
+                              : "bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-300"
                         : "bg-slate-50/50 dark:bg-slate-950/20 border-transparent invisible cursor-default"
                     }`}
                   >
@@ -260,15 +297,21 @@ export default function TasksAndCalendar({
 
                     {/* Miniature content stack inside cell */}
                     {cell.dayNum && (
-                      <div className="space-y-0.5 mt-1 overflow-hidden">
-                        {dayTasks.slice(0, 1).map((t) => (
+                      <div className="space-y-0.5 mt-1 overflow-hidden" draggable={false}>
+                        {dayTasks.slice(0, 2).map((t) => (
                           <div 
                             key={t.id} 
-                            className={`text-[8px] truncate rounded px-1 max-w-full font-sans border ${
+                            draggable
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData("text/plain", t.id);
+                              e.dataTransfer.effectAllowed = "move";
+                            }}
+                            className={`text-[8px] truncate rounded px-1 max-w-full font-sans border cursor-grab active:cursor-grabbing ${
                               t.completed 
                                 ? "bg-slate-100 text-slate-400 line-through border-transparent" 
-                                : "bg-indigo-100/55 text-indigo-700 border-indigo-200/50"
+                                : "bg-indigo-100/55 text-indigo-700 border-indigo-200/50 hover:bg-indigo-200 transition-colors"
                             }`}
+                            title="Drag task onto any calendar card day to reschedule!"
                           >
                             ✓ {t.title}
                           </div>
@@ -293,101 +336,207 @@ export default function TasksAndCalendar({
                 );
               })}
             </div>
-          </div>
+          </div>        </div>
 
-          {/* EVENT AND TASK QUICK CREATORS */}
-          <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            
-            {/* QUICK FORM: ADD TRANSACTION OR CALENDAR EVENT */}
-            {showAddEvent && (
-              <form onSubmit={handleAddNewEvent} className="bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-3 col-span-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs font-mono font-bold text-slate-500 dark:text-slate-400 uppercase">Log Important Financial Event</span>
-                  <button type="button" onClick={() => setShowAddEvent(false)} className="text-[11px] text-slate-400 dark:text-slate-500 cursor-pointer">Hide</button>
+        {/* INLINE ANIMATED OVERLAY MODALS FOR ADD TASK, ADD EVENT AND POPUP CHOICE ACROSS APPLICATION */}
+        <AnimatePresence>
+          {showAddEvent && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs"
+            >
+              <motion.div
+                initial={{ scale: 0.95, y: 15, opacity: 0 }}
+                animate={{ scale: 1, y: 0, opacity: 1 }}
+                exit={{ scale: 0.95, y: 15, opacity: 0 }}
+                transition={{ type: "spring", duration: 0.3 }}
+                className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-xl space-y-4"
+              >
+                <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-800">
+                  <h3 className="text-sm font-extrabold uppercase font-mono tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <CalendarCheck className="w-5 h-5 text-emerald-500" /> Log Financial Event
+                  </h3>
+                  <button type="button" onClick={() => setShowAddEvent(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg cursor-pointer">&times;</button>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <input 
-                    type="text" 
-                    required
-                    placeholder="Payday, Rent payout, Subscription"
-                    value={eventForm.title}
-                    onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
-                    className="w-full text-xs p-2 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg outline-none"
-                  />
-                  <input 
-                    type="number" 
-                    placeholder="Affected Amount ($)"
-                    value={eventForm.amount}
-                    onChange={(e) => setEventForm({ ...eventForm, amount: e.target.value })}
-                    className="w-full text-xs p-2 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg font-mono outline-none"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <input 
-                    type="date" 
-                    required
-                    value={eventForm.date}
-                    onChange={(e) => setEventForm({ ...eventForm, date: e.target.value })}
-                    className="w-full text-xs p-1.5 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg font-mono outline-none"
-                  />
-                  <select
-                    value={eventForm.type}
-                    onChange={(e) => setEventForm({ ...eventForm, type: e.target.value as any })}
-                    className="w-full text-xs p-2 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg outline-none modern-select"
-                  >
-                    <option value="reminder" className="bg-white dark:bg-slate-900">Financial Reminder</option>
-                    <option value="income" className="bg-white dark:bg-slate-900">Guaranteed Income Stream</option>
-                    <option value="expense" className="bg-white dark:bg-slate-900">Inescapable Expense</option>
-                  </select>
-                </div>
-                <button type="submit" className="w-full bg-emerald-600 text-white font-mono font-semibold py-1.5 text-xs rounded-lg transition-all hover:bg-emerald-700 cursor-pointer">
-                  Commit Event to Calendar
-                </button>
-              </form>
-            )}
 
-            {/* QUICK FORM: ADD TASK */}
-            {showAddTask && (
-              <form onSubmit={handleAddNewTask} className="bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-3 col-span-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs font-mono font-bold text-slate-500 dark:text-slate-400 uppercase">Schedule New Task Checklist</span>
-                  <button type="button" onClick={() => setShowAddTask(false)} className="text-[11px] text-slate-400 dark:text-slate-500 cursor-pointer">Hide</button>
+                <form onSubmit={handleAddNewEvent} className="space-y-4 font-sans">
+                  <div className="space-y-1 text-left">
+                    <label className="text-[10px] font-mono font-bold text-slate-400 uppercase">Title / Name</label>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="Payday, Rent payout, Subscription"
+                      value={eventForm.title}
+                      onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
+                      className="w-full text-xs p-3 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-xl outline-none focus:border-indigo-500 transition-colors"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3 text-left">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-mono font-bold text-slate-400 uppercase">Amount ($)</label>
+                      <input 
+                        type="number" 
+                        placeholder="e.g. 1500"
+                        value={eventForm.amount}
+                        onChange={(e) => setEventForm({ ...eventForm, amount: e.target.value })}
+                        className="w-full text-xs p-3 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-xl font-mono outline-none focus:border-indigo-500 transition-colors"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-mono font-bold text-slate-400 uppercase">Event Date</label>
+                      <input 
+                        type="date" 
+                        required
+                        value={eventForm.date}
+                        onChange={(e) => setEventForm({ ...eventForm, date: e.target.value })}
+                        className="w-full text-xs p-3 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-xl font-mono outline-none focus:border-indigo-500 transition-colors"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 text-left">
+                    <label className="text-[10px] font-mono font-bold text-slate-400 uppercase">Flow Type</label>
+                    <select
+                      value={eventForm.type}
+                      onChange={(e) => setEventForm({ ...eventForm, type: e.target.value as any })}
+                      className="w-full text-xs p-3 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-xl outline-none focus:border-indigo-500 transition-colors"
+                    >
+                      <option value="reminder">Financial Reminder</option>
+                      <option value="income">Guaranteed Income Stream</option>
+                      <option value="expense">Inescapable Expense</option>
+                    </select>
+                  </div>
+
+                  <button type="submit" className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-mono font-semibold py-3 text-xs rounded-xl transition-all cursor-pointer shadow-md shadow-emerald-250/20 dark:shadow-none">
+                    Commit Event to Calendar
+                  </button>
+                </form>
+              </motion.div>
+            </motion.div>
+          )}
+
+          {showAddTask && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs"
+            >
+              <motion.div
+                initial={{ scale: 0.95, y: 15, opacity: 0 }}
+                animate={{ scale: 1, y: 0, opacity: 1 }}
+                exit={{ scale: 0.95, y: 15, opacity: 0 }}
+                transition={{ type: "spring", duration: 0.3 }}
+                className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-xl space-y-4"
+              >
+                <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-800">
+                  <h3 className="text-sm font-extrabold uppercase font-mono tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <CheckSquare className="w-5 h-5 text-indigo-500" /> Schedule Task Checklist
+                  </h3>
+                  <button type="button" onClick={() => setShowAddTask(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg cursor-pointer">&times;</button>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <input 
-                    type="text" 
-                    required
-                    placeholder="e.g. Audit electricity bills, Renew parking pass"
-                    value={taskForm.title}
-                    onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
-                    className="w-full text-xs p-2 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg outline-none"
-                  />
-                  <input 
-                    type="number"
-                    placeholder="Fee amount if any ($)"
-                    value={taskForm.amount}
-                    onChange={(e) => setTaskForm({ ...taskForm, amount: e.target.value })}
-                    className="w-full text-xs p-2 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg font-mono outline-none"
-                  />
-                </div>
+
+                <form onSubmit={handleAddNewTask} className="space-y-4 font-sans">
+                  <div className="space-y-1 text-left">
+                    <label className="text-[10px] font-mono font-bold text-slate-400 uppercase">Task Title</label>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="e.g. Audit electricity bills, Renew parking pass"
+                      value={taskForm.title}
+                      onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
+                      className="w-full text-xs p-3 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-xl outline-none focus:border-indigo-500 transition-colors"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-left">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-mono font-bold text-slate-400 uppercase">Fee Amount ($ if any)</label>
+                      <input 
+                        type="number"
+                        placeholder="e.g. 45"
+                        value={taskForm.amount}
+                        onChange={(e) => setTaskForm({ ...taskForm, amount: e.target.value })}
+                        className="w-full text-xs p-3 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-xl font-mono outline-none focus:border-indigo-500 transition-colors"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-mono font-bold text-slate-400 uppercase">Due Date</label>
+                      <input 
+                        type="date" 
+                        required
+                        value={taskForm.dueDate}
+                        onChange={(e) => setTaskForm({ ...taskForm, dueDate: e.target.value })}
+                        className="w-full text-xs p-3 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-xl font-mono outline-none focus:border-indigo-500 transition-colors"
+                      />
+                    </div>
+                  </div>
+
+                  <button type="submit" className="w-full mt-2 bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-slate-200 text-white dark:text-slate-950 font-mono font-semibold py-3 text-xs rounded-xl transition-all cursor-pointer shadow-md">
+                    Commit To-Do Task
+                  </button>
+                </form>
+              </motion.div>
+            </motion.div>
+          )}
+
+          {choiceDate !== null && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs"
+            >
+              <motion.div
+                initial={{ scale: 0.95, y: 15, opacity: 0 }}
+                animate={{ scale: 1, y: 0, opacity: 1 }}
+                exit={{ scale: 0.95, y: 15, opacity: 0 }}
+                transition={{ type: "spring", duration: 0.3 }}
+                className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl max-w-sm w-full p-6 shadow-xl text-center space-y-4"
+              >
                 <div>
-                  <input 
-                    type="date" 
-                    required
-                    value={taskForm.dueDate}
-                    onChange={(e) => setTaskForm({ ...taskForm, dueDate: e.target.value })}
-                    className="w-full text-xs p-1.5 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg font-mono outline-none"
-                  />
+                  <span className="text-[10px] font-mono font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest block">Action Scheduler</span>
+                  <h3 className="font-extrabold text-slate-900 dark:text-slate-100 text-base mt-1">
+                    May {parseInt(choiceDate.split("-")[2], 10)}, 2026
+                  </h3>
                 </div>
-                <button type="submit" className="w-full bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-slate-200 text-white dark:text-slate-950 font-mono font-semibold py-1.5 text-xs rounded-lg transition-all cursor-pointer">
-                  Commit To-Do Task
-                </button>
-              </form>
-            )}
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Schedule a new checklist task or log a financial transaction event on this calendar day.
+                </p>
 
-          </div>
-
-        </div>
+                <div className="grid grid-cols-1 gap-2 pt-2">
+                  <button
+                    onClick={() => {
+                      setShowAddTask(true);
+                      setChoiceDate(null);
+                    }}
+                    className="w-full p-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm shadow-indigo-150"
+                  >
+                    <CheckSquare className="w-4 h-4" /> Schedule Task Checklist
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowAddEvent(true);
+                      setChoiceDate(null);
+                    }}
+                    className="w-full p-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm shadow-emerald-150"
+                  >
+                    <CalendarCheck className="w-4 h-4" /> Log Financial Event
+                  </button>
+                  <button
+                    onClick={() => setChoiceDate(null)}
+                    className="w-full p-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-xl transition-all cursor-pointer"
+                  >
+                    Cancel / View Details
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* DETAILED DAILY ACTION PANEL */}
         <div className="space-y-6" id="daily-breakdown-panel">
@@ -450,7 +599,13 @@ export default function TasksAndCalendar({
                   {activeDayTasks.map((t) => (
                     <div 
                       key={t.id} 
-                      className="mb-2 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/20 dark:bg-slate-950/20 flex justify-between items-center gap-2 text-xs"
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData("text/plain", t.id);
+                        e.dataTransfer.effectAllowed = "move";
+                      }}
+                      className="mb-2 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/20 dark:bg-slate-950/20 flex justify-between items-center gap-2 text-xs cursor-grab active:cursor-grabbing hover:border-indigo-300 dark:hover:border-indigo-800 transition-colors"
+                      title="Drag to update due date on calendar!"
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <button 
@@ -514,7 +669,13 @@ export default function TasksAndCalendar({
               {tasks.map((t) => (
                 <div 
                   key={t.id} 
-                  className="flex items-center justify-between gap-1.5 p-2 rounded-xl bg-slate-55 dark:bg-slate-950 border border-slate-100 dark:border-slate-800"
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData("text/plain", t.id);
+                    e.dataTransfer.effectAllowed = "move";
+                  }}
+                  className="flex items-center justify-between gap-1.5 p-2 rounded-xl bg-slate-55 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 cursor-grab active:cursor-grabbing hover:border-indigo-300 dark:hover:border-indigo-800 transition-colors"
+                  title="Drag task onto any calendar date to reschedule!"
                 >
                   <div className="flex items-center gap-2 min-w-0 text-xs">
                     <button onClick={() => handleToggleTaskStatus(t.id)} className="cursor-pointer">

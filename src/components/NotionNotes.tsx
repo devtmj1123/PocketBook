@@ -16,6 +16,29 @@ import {
 } from "lucide-react";
 import { NotionNote, NoteBlock, CustomTag } from "../types";
 
+const escapeRegExp = (str: string) => {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+};
+
+const highlightText = (text: string, search: string) => {
+  if (!search.trim()) return <>{text}</>;
+  const regex = new RegExp(`(${escapeRegExp(search)})`, "gi");
+  const parts = text.split(regex);
+  return (
+    <>
+      {parts.map((part, i) =>
+        regex.test(part) ? (
+          <mark key={i} className="bg-amber-200 dark:bg-amber-900/40 text-amber-950 dark:text-amber-100 px-0.5 rounded-sm">
+            {part}
+          </mark>
+        ) : (
+          part
+        )
+      )}
+    </>
+  );
+};
+
 interface NotionNotesProps {
   notes: NotionNote[];
   setNotes: React.Dispatch<React.SetStateAction<NotionNote[]>>;
@@ -260,13 +283,37 @@ export default function NotionNotes({
           </div>
 
           <div className="space-y-2 mb-4">
-            <input 
-              type="text" 
-              value={searchNotes}
-              onChange={(e) => setSearchNotes(e.target.value)}
-              placeholder="Search documents & contents..."
-              className="w-full text-xs p-2 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-xl placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            />
+            <div className="relative">
+              <input 
+                type="text" 
+                value={searchNotes}
+                onChange={(e) => setSearchNotes(e.target.value)}
+                placeholder="Search documents & contents..."
+                className="w-full text-xs p-2 pr-8 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-xl placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+              {searchNotes && (
+                <button
+                  type="button"
+                  onClick={() => setSearchNotes("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-450 hover:text-slate-655 dark:hover:text-slate-200 cursor-pointer p-0.5"
+                  title="Clear search query"
+                  id="btn-clear-notes-search"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
+            {searchNotes && (
+              <div className="flex justify-between items-center px-1" id="notes-matches-indicators">
+                <span className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 font-bold">
+                  Matched {filteredNotesList.length} of {notes.length} notes
+                </span>
+                <span className="text-[9px] text-slate-400 dark:text-slate-500 font-medium italic">
+                  Highlights active
+                </span>
+              </div>
+            )}
             
             <select
               value={selectedTagFilter}
@@ -284,9 +331,32 @@ export default function NotionNotes({
           <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1" id="notes-sidebar-scroll">
             {filteredNotesList.map((n) => {
               const isActive = n.id === currentSelectedNoteId;
-              const previewText = n.blocks.length > 0 
-                ? n.blocks[0].content.substring(0, 48) + "..." 
-                : "No blocks in this page";
+              
+              // Intelligent match preview
+              let isMatchedInContent = false;
+              let previewTextNode: React.ReactNode = "";
+              
+              if (searchNotes) {
+                const foundMatchBlock = n.blocks.find((b) => 
+                  b.content.toLowerCase().includes(searchNotes.toLowerCase())
+                );
+                if (foundMatchBlock) {
+                  isMatchedInContent = true;
+                  const text = foundMatchBlock.content;
+                  const index = text.toLowerCase().indexOf(searchNotes.toLowerCase());
+                  const start = Math.max(0, index - 15);
+                  const end = Math.min(text.length, index + searchNotes.length + 20);
+                  const snippet = (start > 0 ? "..." : "") + text.substring(start, end) + (end < text.length ? "..." : "");
+                  previewTextNode = highlightText(snippet, searchNotes);
+                }
+              }
+              
+              if (!isMatchedInContent) {
+                const rawSnippet = n.blocks.length > 0 
+                  ? n.blocks[0].content.substring(0, 48) + (n.blocks[0].content.length > 48 ? "..." : "") 
+                  : "No blocks in this page";
+                previewTextNode = searchNotes ? highlightText(rawSnippet, searchNotes) : rawSnippet;
+              }
 
               return (
                 <div
@@ -302,7 +372,7 @@ export default function NotionNotes({
                 >
                   <div className="flex justify-between items-start gap-1">
                     <span className="font-semibold text-xs truncate max-w-[140px] block">
-                      {n.title}
+                      {searchNotes ? highlightText(n.title, searchNotes) : n.title}
                     </span>
                     <button
                       onClick={(e) => handleDeleteNote(n.id, e)}
@@ -314,7 +384,7 @@ export default function NotionNotes({
                   </div>
                   
                   <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 truncate leading-snug">
-                    {previewText}
+                    {previewTextNode}
                   </p>
 
                   <div className="flex gap-1 flex-wrap mt-2">
@@ -352,7 +422,11 @@ export default function NotionNotes({
           <div className="space-y-6" id="active-note-workspace">
             
             {/* Header / Meta / Tags config */}
-            <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
+            <div className={`transition-all duration-300 ${
+              searchNotes && activeNote.title.toLowerCase().includes(searchNotes.toLowerCase())
+                ? "border-b border-amber-200 dark:border-amber-900/40 bg-amber-50/10 dark:bg-amber-950/5 p-3.5 rounded-2xl mb-4"
+                : "border-b border-slate-100 dark:border-slate-800 pb-4"
+            }`}>
               <input
                 type="text"
                 value={activeNote.title}
@@ -360,6 +434,13 @@ export default function NotionNotes({
                 className="w-full text-xl font-bold text-slate-900 dark:text-slate-100 border-none outline-none focus:ring-0 placeholder:text-slate-300 dark:placeholder:text-slate-600 pb-2 bg-transparent"
                 placeholder="Page Title Header"
               />
+
+              {searchNotes && activeNote.title.toLowerCase().includes(searchNotes.toLowerCase()) && (
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 mb-2 px-1.5 py-1 bg-amber-100/40 dark:bg-amber-950/20 rounded-md border border-amber-200/40 dark:border-amber-900/30">
+                  <span className="font-semibold text-[9px] text-amber-700 dark:text-amber-400 mr-1.5 font-mono uppercase tracking-wider">Title Match:</span>
+                  {highlightText(activeNote.title, searchNotes)}
+                </div>
+              )}
 
               {/* Tag Association Toolbar inside Note */}
               <div className="flex items-center gap-1.5 flex-wrap mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
@@ -388,98 +469,140 @@ export default function NotionNotes({
 
             {/* BLOCK STACK LIST */}
             <div className="space-y-4 max-h-[380px] overflow-y-auto pr-1" id="notion-blocks-stack">
-              {activeNote.blocks.map((block) => (
-                <div 
-                  key={block.id} 
-                  className="group flex items-start gap-2.5 hover:bg-slate-50/70 dark:hover:bg-slate-900/60 p-1.5 rounded-xl transition-all"
-                >
-                  
-                  {/* Icon Block Type representation */}
-                  <div className="mt-1 flex-shrink-0 text-slate-300 dark:text-slate-600">
-                    {block.type === "heading" && <Heading1 className="w-3.5 h-3.5" />}
-                    {block.type === "text" && <Type className="w-3.5 h-3.5" />}
-                    {block.type === "bullet" && <List className="w-3.5 h-3.5" />}
-                    {block.type === "todo" && <CheckSquare className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />}
-                    {block.type === "financial-note" && <DollarSign className="w-3.5 h-3.5 text-emerald-500" />}
-                  </div>
-
-                  {/* Editable Input Blocks based on Type */}
-                  <div className="flex-1">
-                    {block.type === "heading" ? (
-                      <input
-                        type="text"
-                        value={block.content}
-                        onChange={(e) => handleUpdateBlockContent(block.id, e.target.value)}
-                        onKeyDown={(e) => handleKeyDownOnBlock(e, block.id, block.type, block.content)}
-                        autoFocus={block.id === lastCreatedBlockId}
-                        className="w-full font-bold text-slate-800 dark:text-slate-200 text-sm bg-transparent border-b border-transparent focus:border-indigo-200 outline-none pb-0.5"
-                      />
-                    ) : block.type === "todo" ? (
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={!!block.completed}
-                          onChange={() => handleToggleBlockTodo(block.id)}
-                          className="w-3.5 h-3.5 accent-indigo-600 rounded cursor-pointer"
-                        />
-                        <input
-                          type="text"
-                          value={block.content}
-                          onChange={(e) => handleUpdateBlockContent(block.id, e.target.value)}
-                          onKeyDown={(e) => handleKeyDownOnBlock(e, block.id, block.type, block.content)}
-                          autoFocus={block.id === lastCreatedBlockId}
-                          className={`w-full text-xs text-slate-700 dark:text-slate-300 bg-transparent border-b border-transparent focus:border-indigo-200 outline-none ${
-                            block.completed ? "line-through text-slate-400 dark:text-slate-550" : ""
-                          }`}
-                        />
-                      </div>
-                    ) : block.type === "financial-note" ? (
-                      <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-2 border-l-2 border-emerald-400 dark:border-emerald-600 rounded-r-lg flex items-center gap-1.5">
-                        <span className="text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-400 uppercase">BUDGET SNAP:</span>
-                        <input
-                          type="text"
-                          value={block.content}
-                          onChange={(e) => handleUpdateBlockContent(block.id, e.target.value)}
-                          onKeyDown={(e) => handleKeyDownOnBlock(e, block.id, block.type, block.content)}
-                          autoFocus={block.id === lastCreatedBlockId}
-                          className="w-full text-xs text-emerald-900 dark:text-emerald-300 font-mono font-semibold bg-transparent border-none outline-none focus:ring-0 p-0"
-                        />
-                      </div>
-                    ) : block.type === "bullet" ? (
-                      <div className="flex gap-1.5 items-start">
-                        <span className="text-slate-400 dark:text-slate-500 mt-0.5">•</span>
-                        <textarea
-                          rows={1}
-                          value={block.content}
-                          onChange={(e) => handleUpdateBlockContent(block.id, e.target.value)}
-                          onKeyDown={(e) => handleKeyDownOnBlock(e, block.id, block.type, block.content)}
-                          autoFocus={block.id === lastCreatedBlockId}
-                          className="w-full text-xs text-slate-700 dark:text-slate-300 bg-transparent py-0 border-b border-transparent focus:border-indigo-200 outline-none resize-none font-sans"
-                        />
-                      </div>
-                    ) : (
-                      <textarea
-                        rows={2}
-                        value={block.content}
-                        onChange={(e) => handleUpdateBlockContent(block.id, e.target.value)}
-                        onKeyDown={(e) => handleKeyDownOnBlock(e, block.id, block.type, block.content)}
-                        autoFocus={block.id === lastCreatedBlockId}
-                        className="w-full text-xs text-slate-600 dark:text-slate-400 bg-transparent py-0 border-b border-transparent focus:border-indigo-200 outline-none resize-none leading-relaxed font-sans"
-                      />
-                    )}
-                  </div>
-
-                  {/* Delete Block */}
-                  <button
-                    onClick={() => handleDeleteBlock(block.id)}
-                    className="opacity-0 group-hover:opacity-100 text-slate-300 dark:text-slate-600 hover:text-red-500 transition-opacity p-1 cursor-pointer"
-                    title="Remove component block"
+              {activeNote.blocks.map((block) => {
+                const isMatch = searchNotes && block.content.toLowerCase().includes(searchNotes.toLowerCase());
+                return (
+                  <div 
+                    key={block.id} 
+                    className={`group flex items-start gap-2.5 p-1.5 rounded-xl transition-all ${
+                      isMatch 
+                        ? "bg-amber-50/20 dark:bg-amber-950/10 border border-amber-200/50 dark:border-amber-900/40 shadow-3xs" 
+                        : "hover:bg-slate-50/70 dark:hover:bg-slate-900/60"
+                    }`}
                   >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
+                    
+                    {/* Icon Block Type representation */}
+                    <div className="mt-1 flex-shrink-0 text-slate-300 dark:text-slate-600">
+                      {block.type === "heading" && <Heading1 className="w-3.5 h-3.5" />}
+                      {block.type === "text" && <Type className="w-3.5 h-3.5" />}
+                      {block.type === "bullet" && <List className="w-3.5 h-3.5" />}
+                      {block.type === "todo" && <CheckSquare className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />}
+                      {block.type === "financial-note" && <DollarSign className="w-3.5 h-3.5 text-emerald-500" />}
+                    </div>
 
-                </div>
-              ))}
+                    {/* Editable Input Blocks based on Type */}
+                    <div className="flex-1">
+                      {block.type === "heading" ? (
+                        <>
+                          <input
+                            type="text"
+                            value={block.content}
+                            onChange={(e) => handleUpdateBlockContent(block.id, e.target.value)}
+                            onKeyDown={(e) => handleKeyDownOnBlock(e, block.id, block.type, block.content)}
+                            autoFocus={block.id === lastCreatedBlockId}
+                            className="w-full font-bold text-slate-800 dark:text-slate-200 text-sm bg-transparent border-b border-transparent focus:border-indigo-200 outline-none pb-0.5"
+                          />
+                          {isMatch && (
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 px-1.5 py-0.5 bg-amber-50/60 dark:bg-amber-950/25 rounded-md border border-amber-200/30 dark:border-amber-950/40 select-all font-sans">
+                              {highlightText(block.content, searchNotes)}
+                            </div>
+                          )}
+                        </>
+                      ) : block.type === "todo" ? (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={!!block.completed}
+                              onChange={() => handleToggleBlockTodo(block.id)}
+                              className="w-3.5 h-3.5 accent-indigo-600 rounded cursor-pointer"
+                            />
+                            <input
+                              type="text"
+                              value={block.content}
+                              onChange={(e) => handleUpdateBlockContent(block.id, e.target.value)}
+                              onKeyDown={(e) => handleKeyDownOnBlock(e, block.id, block.type, block.content)}
+                              autoFocus={block.id === lastCreatedBlockId}
+                              className={`w-full text-xs text-slate-700 dark:text-slate-300 bg-transparent border-b border-transparent focus:border-indigo-200 outline-none ${
+                                block.completed ? "line-through text-slate-400 dark:text-slate-550" : ""
+                              }`}
+                            />
+                          </div>
+                          {isMatch && (
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 ml-5 px-1.5 py-0.5 bg-amber-50/60 dark:bg-amber-950/25 rounded-md border border-amber-200/30 dark:border-amber-955/40 select-all font-sans">
+                              {highlightText(block.content, searchNotes)}
+                            </div>
+                          )}
+                        </>
+                      ) : block.type === "financial-note" ? (
+                        <>
+                          <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-2 border-l-2 border-emerald-400 dark:border-emerald-600 rounded-r-lg flex items-center gap-1.5">
+                            <span className="text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-400 uppercase">BUDGET SNAP:</span>
+                            <input
+                              type="text"
+                              value={block.content}
+                              onChange={(e) => handleUpdateBlockContent(block.id, e.target.value)}
+                              onKeyDown={(e) => handleKeyDownOnBlock(e, block.id, block.type, block.content)}
+                              autoFocus={block.id === lastCreatedBlockId}
+                              className="w-full text-xs text-emerald-900 dark:text-emerald-300 font-mono font-semibold bg-transparent border-none outline-none focus:ring-0 p-0"
+                            />
+                          </div>
+                          {isMatch && (
+                            <div className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-1 px-1.5 py-0.5 bg-amber-50/60 dark:bg-amber-950/25 rounded-md border border-amber-200/30 dark:border-amber-955/40 select-all font-mono">
+                              {highlightText(block.content, searchNotes)}
+                            </div>
+                          )}
+                        </>
+                      ) : block.type === "bullet" ? (
+                        <>
+                          <div className="flex gap-1.5 items-start">
+                            <span className="text-slate-400 dark:text-slate-500 mt-0.5">•</span>
+                            <textarea
+                              rows={1}
+                              value={block.content}
+                              onChange={(e) => handleUpdateBlockContent(block.id, e.target.value)}
+                              onKeyDown={(e) => handleKeyDownOnBlock(e, block.id, block.type, block.content)}
+                              autoFocus={block.id === lastCreatedBlockId}
+                              className="w-full text-xs text-slate-700 dark:text-slate-300 bg-transparent py-0 border-b border-transparent focus:border-indigo-200 outline-none resize-none font-sans"
+                            />
+                          </div>
+                          {isMatch && (
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 ml-4 px-1.5 py-0.5 bg-amber-50/60 dark:bg-amber-950/25 rounded-md border border-amber-200/30 dark:border-amber-955/40 select-all font-sans">
+                              {highlightText(block.content, searchNotes)}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <textarea
+                            rows={2}
+                            value={block.content}
+                            onChange={(e) => handleUpdateBlockContent(block.id, e.target.value)}
+                            onKeyDown={(e) => handleKeyDownOnBlock(e, block.id, block.type, block.content)}
+                            autoFocus={block.id === lastCreatedBlockId}
+                            className="w-full text-xs text-slate-600 dark:text-slate-400 bg-transparent py-0 border-b border-transparent focus:border-indigo-200 outline-none resize-none leading-relaxed font-sans"
+                          />
+                          {isMatch && (
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 px-1.5 py-0.5 bg-amber-50/60 dark:bg-amber-950/25 rounded-md border border-amber-200/30 dark:border-amber-955/40 select-all font-sans">
+                              {highlightText(block.content, searchNotes)}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+
+                    {/* Delete Block */}
+                    <button
+                      onClick={() => handleDeleteBlock(block.id)}
+                      className="opacity-0 group-hover:opacity-100 text-slate-300 dark:text-slate-600 hover:text-red-500 transition-opacity p-1 cursor-pointer"
+                      title="Remove component block"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+
+                  </div>
+                );
+              })}
             </div>
 
             {/* BLOCK CREATION PALETTE ACCORDION */}
